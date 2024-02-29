@@ -1,0 +1,114 @@
+#lang plai-typed
+
+(define-type ExprC
+  [numC (n : number)]
+  [idC (s : symbol)]
+  [appC (fun : ExprC) (arg : ExprC)]
+  [plusC (l : ExprC) (r : ExprC)]
+  [multC (l : ExprC) (r : ExprC)]
+  [lamC (arg : symbol) (body : ExprC)])
+(define-type Value
+  [numV (n : number)]
+  [closV (arg : symbol) (body : ExprC) (env : Env)])
+(define-type Binding
+  [bind (name : symbol) (val : Value)])
+
+(define-type-alias Env (listof Binding))
+(define mt-env empty)
+(define extend-env cons)
+
+(define (lookup [for : symbol] [env : Env]): Value
+  (cond [(empty? env) (error for "name not bound")]
+        [(symbol=? for (bind-name (first env)))
+         (bind-val (first env))]
+        [else (lookup for (rest env))]))
+(define (interp [e : ExprC] [env : Env]) : Value
+  (type-case ExprC e
+             [numC (n) (numV n)]
+             [idC (n) (lookup n env)]
+             [lamC (a b) (closV a b env)]
+             [appC (f a) (local ([define f-value (interp f env)])
+                                (interp (closV-body f-value)
+                                        (extend-env (bind (closV-arg f-value)
+                                                          (interp a env))
+                                        (closV-env f-value)
+                                        ;env
+                                        ;mt-env
+                                                    )))]
+             [plusC (l r) (num+ (interp l env) (interp r env))]
+             [multC (l r) (num* (interp l env) (interp r env))] ))
+
+(define (num+ [l : Value] [r : Value]): Value
+  (cond [(and (numV? l) (numV? r)) (numV (+ (numV-n l) (numV-n r)))]
+        [else (error 'num+ "one of the arguments was not a number")]))
+(define (num* [l : Value] [r : Value]): Value
+  (cond [(and (numV? l) (numV? r)) (numV (* (numV-n l) (numV-n r)))]
+        [else (error 'num+ "one of the arguments was not a number")]))
+
+(test (interp (plusC (numC 10)
+                     (appC (lamC '_ (numC 5))
+                           (numC 10)))
+              mt-env)
+      (numV 15))
+
+(test
+ (interp (appC (lamC 'x (appC (lamC 'y (plusC (idC 'x) (idC 'y)))
+                              (numC 4)))
+               (numC 3))
+         mt-env)
+ (numV 7))
+
+(lamC 'x
+      (lamC 'x
+          (plusC (idC 'x) (idC 'x))))
+
+(interp (appC (lamC 'x
+                    (lamC 'x
+                        (plusC (idC 'x) (idC 'x))))
+              (numC 4))
+        mt-env)
+
+(interp (appC (lamC 'x
+                    (lamC 'y
+                          (plusC (idC 'x) (idC 'y))))
+              (numC 4))
+        mt-env)
+
+(test
+ (interp (appC (appC (lamC 'x
+                           (lamC 'y
+                                 (plusC (idC 'x) (idC 'y))))
+                     (numC 4))
+               (numC 5))
+         mt-env)
+ (numV 9))
+
+;;; THIS is a program that generates 3 different answers for each type
+;;; of interpreter:
+;;; 
+;;; ((lambda (x)
+;;;    ((lambda (x) (x 10))
+;;;     (lambda (y) x)))
+;;;  5)
+;;; 
+;;; ** SUBSTITUTION -- mt-env
+;;; 
+;;; ==> x: name not bound
+;;; 
+;;; ** DYNAMIC SCOPE -- env
+;;; 
+;;; ==> (closV 'y (idC 'x) (list (bind 'x (numV 5))))
+;;; 
+;;; ** STATIC SCOPE -- (closV-env f-value)
+;;; 
+;;; ==> (numV 5)
+
+(interp (appC
+         (lamC 'x
+               (appC
+                (lamC 'x (appC (idC 'x) (numC 10)))
+                (lamC 'y (idC 'x))))
+         (numC 5))
+        mt-env)
+
+

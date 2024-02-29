@@ -1,0 +1,172 @@
+#lang racket
+
+(define (d . a)
+  (map (lambda (x) (display x) (display " "))
+       a)
+  (newline))
+
+(define identity (lambda (e) e))
+(define (run proc) (proc identity) )
+(define (read-number prompt rest-of-computation)
+  (display prompt)
+  (display (read___))
+  (newline)
+  (rest-of-computation (read___)))
+(define read___ (lambda () 999))
+
+(define a 'dummy-a)
+(define b 'dummy-b)
+
+(define new-label
+  (let ((n 1))
+    (lambda ()
+      (let ((k n))
+        (begin
+          (set! n (add1 n))
+          k)))))
+(define-syntax test
+  (syntax-rules ()
+    [(test e)
+     (begin (d "------------------------------ TEST NUMBER *" (new-label) "*")
+            (run (cps e))
+            (d "==>" a b))]))
+
+(define-syntax (cps e)
+  (syntax-case e (seq set quote lam display read-number)
+    [(_ (read-number prompt))
+     #'(lambda (k)
+         ((cps prompt) (lambda (pv)
+                         (read-number pv k))))]
+    [(_ (display output))
+     #'(lambda (k)
+         ((cps output) (lambda (ov)
+                         (k (display ov)))))]
+    [(_ 'e)
+     #'(lambda (k)
+         (k 'e))]
+    [(_ (lam (a) b))
+     (identifier? #'a)
+     #'(lambda (k)
+         (k (lambda (a dyn-k)
+              ((cps b) dyn-k))))]
+    [(_ (cnd tst thn els))
+     #'(lambda (k)
+         ((cps tst) (lambda (tv)
+                      (if tv
+                          ((cps thn) k)
+                          ((cps els) k)))))]
+    [(_ (set v e))
+     #'(lambda (k)
+         ((cps e) (lambda (ev)
+                    (k (set! v ev)))))]
+    [(_ (seq e1 e2))
+     #'(lambda (k)
+         ((cps e1) (lambda (_)
+                     ((cps e2) k))))]
+    [(_ (f a b))
+     #'(lambda (k)
+         ((cps a) (lambda (av)
+                    ((cps b) (lambda (bv)
+                               (k (f av bv)))))))]
+    [(_ (f a))
+     #'(lambda (k)
+         ((cps f) (lambda (fv)
+                    ((cps a) (lambda (av)
+                               (fv av k))))))]
+    [(_ atomic)
+     #'(lambda (k)
+         (k atomic))]))
+
+(test 3)
+
+(test 'name)
+
+(test (set a 10))
+
+(test (seq (set a 100)
+           (seq (set a 200)
+                (set b 300))))
+
+(test (cnd
+       true
+       (seq (set a 1000)
+            (set b 1000))
+       (seq (set a 2000)
+            (set b 3000))))
+
+(test (cnd
+       false
+       (seq (set a 1000)
+            (set b 1000))
+       (seq (set a 2000)
+            (set b 3000))))
+
+(test ((lam (x) (set a x))
+       1111))
+
+(test (+ (seq (set a 2222)
+              a)
+         (seq (set b 5555)
+              b)))
+
+(test (seq
+       (display "::")
+       (seq (display (+ (seq (set a 111)
+                             a)
+                        (seq (set b 222)
+                             b)))
+            (display "\n"))))
+
+(test (seq
+       (display a)
+       (seq (display "<-->")
+            (seq
+             (display b)
+             (seq
+              (newline)
+              (set a (read-number "read: A=")))))))
+
+(test (seq
+       (display "SUM(100) -- FACTORIAL(10)")
+       (seq
+        (newline)
+        (seq
+         (set a
+              ((lam (self)
+                    ((self self) 100))
+               (lam (self)
+                    (lam (n)
+                         (cnd (= n 0)
+                              0
+                              (+ n ((self self) (- n 1))))))))
+         (set b
+              ((lam (self)
+                    ((self self) 10))
+               (lam (self)
+                    (lam (n)
+                         (cnd (= n 0)
+                              1
+                              (* n ((self self) (- n 1))))))))))))
+
+(test (seq
+       (display "WILL RESET A AND B")
+       (seq
+        (newline)
+        (seq
+         (set a 0)
+         (set b 0)))))
+
+(test ((lam (self)
+            (seq
+             (set a 0)
+             ((self self) 100)))
+       (lam (self)
+            (lam (n)
+                 (cnd (= n 0)
+                      (seq (display "re-computed sum via mutation")
+                           (newline))
+                      (seq
+                       (set a (+ a n))
+                       ((self self) (- n 1))))))))
+
+'done

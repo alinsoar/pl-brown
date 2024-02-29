@@ -1,0 +1,35 @@
+#lang racket
+
+(define (d . a)
+  (map display a)
+  (newline))
+
+(call/cc call/cc)
+
+((call/cc
+  (lambda (k)
+    (display "A")
+    (call/cc (lambda (x)
+               (k x)))))
+ (lambda (k)
+   (display "B")
+   'x))
+
+(define N 0)
+
+(d "---")
+
+((call/cc
+  (lambda (k)
+    (d "A")
+    (call/cc
+     (lambda (x) (k x)))))
+ (call/cc
+  (lambda (k)
+    (d "_" N)
+    (if (< N 10)
+        (begin
+          (set! N (add1 N))
+          (call/cc (lambda (x)
+                     (k x))))
+        (lambda (_) (d 'done))))))

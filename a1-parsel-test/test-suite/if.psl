@@ -1,0 +1,16 @@
+
+# BUGS in
+
+# if-then-else2
+
+if ""
+then {print(1); 2;}
+else {print(3); 4;}
+
+
+
+
+
+
+
+

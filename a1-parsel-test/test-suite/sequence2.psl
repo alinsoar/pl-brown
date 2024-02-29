@@ -1,0 +1,11 @@
+
+# BUGS in:
+
+# sequence2
+
+defvar o = {x:0} in {
+  o.x = 1;
+  print (o.x);
+}
+
+

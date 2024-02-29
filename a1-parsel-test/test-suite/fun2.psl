@@ -1,0 +1,11 @@
+
+# BUGS in
+
+# functions2
+# bindings3
+
+defvar obj = {
+    method : lambda(self, x) x
+} in
+obj.method(obj, 10)
+

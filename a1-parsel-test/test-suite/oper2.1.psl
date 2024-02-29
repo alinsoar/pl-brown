@@ -1,0 +1,9 @@
+
+# BUGS in
+
+# operators2.1
+# bindings4
+
+defvar x = 0 in {++x}
+
+

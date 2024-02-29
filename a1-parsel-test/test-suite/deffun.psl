@@ -1,0 +1,10 @@
+
+# BUGS in
+
+# bindings2
+# functions3
+# sequence1
+
+defvar x = 0 in
+deffun x() x in x()
+

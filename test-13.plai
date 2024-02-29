@@ -1,0 +1,214 @@
+#lang plai
+
+(require macro-debugger/stepper-text)
+
+(define-syntax my-let-1
+  (syntax-rules ()
+    [(my-let-1 (var val) body)
+     ((lambda (var) body) val)]))
+
+;;; quote macro expansion
+(define-syntax my-let-1-1
+  (syntax-rules ()
+    [(my-let-1 (var val) body)
+     '((lambda (var) body) val)]))
+
+(my-let-1 (x 5) (+ x 1))
+
+(my-let-1-1 (3 5) (+ x 1))
+
+(define-syntax my-let-2
+  (syntax-rules ()
+    [(my-let-1 ([var val] ...) body)
+     ((lambda (var ...) body) val ...)]))
+
+(define-syntax my-let-2-1
+  (syntax-rules ()
+    [(my-let-1 ([var val] ...) body)
+     '((lambda (var ...) body) val ...)]))
+
+(my-let-2 ((a 6) (x 5)) (+ a x))
+
+'(expand/step-text #'(my-let-2 ((a 6) (x 5)) (+ a x)))
+
+(my-let-2-1 (((a) 6) (x 5)) (+ a x))
+(my-let-2-1 ((1 6) (x 5)) (+ a x))
+
+(define-syntax my-let-2-2
+  (syntax-rules ()
+    [(my-let-1 (a v1 b v2) body)
+     (my-let-1 (a v1) (my-let-1 (b v2) body))]))
+
+(define-syntax my-let-2-2-1
+  (syntax-rules ()
+    [(my-let-1 (a v1 b v2) body)
+     '(my-let-1 (a v1) (my-let-1 (b v2) body))]))
+
+(my-let-2-2 (a 3 b 4) (* a b))
+
+(my-let-2-2-1 (a 3 b 4) (* a b))
+
+'(expand/step-text #'(my-let-2-2 (a 3 b 4) (* a b)))
+
+(define-syntax (my-let-3 x)
+  (syntax-case x ()
+    [(my-let-3 (var val) body)
+     #'((lambda (var) body) val)]))
+
+(define-syntax (my-let-4 x)
+  (syntax-case x ()
+    [(my-let-4 (var val) body)
+     (identifier? #'var) ;; Guard
+     #'((lambda (var) body) val)]))
+
+(my-let-3 (a 5) (+ 1 (* a 3)))
+'(my-let-3 (4 5) (+ 1 (* a 3)))
+(my-let-4 (a 5) (+ 1 (* a 3)))
+'(my-let-4 (4 5) (+ 1 (* a 3)))
+
+(define-syntax (my-or-1 x)
+  (syntax-case x ()
+    [(my-or-1 e0 e1 ...)
+     #'(if e0
+           e0
+           (my-or-1 e1 ...))]))
+
+(define-syntax (my-or-1-1 x)
+  (syntax-case x ()
+    [(my-or-1 e0 e1 ...)
+     #''(if
+         e0
+         e0
+         (my-or-1 e1 ...))]))
+
+(my-or-1-1 false true)
+
+'(expand/step-text #'(my-or-1 false true))
+
+(define-syntax (my-or-2 x)
+  (syntax-case x ()
+    [(my-or-2) #'#f]
+    [(my-or-2 e0 e1 ...) #'(if e0
+                               e0
+                               (my-or-2 e1 ...))]))
+
+(map (lambda (x y) (my-or-2 x y))
+     '(false true  false true)
+     '(true  false false true))
+
+(define-syntax (my-or-3 x)
+  (syntax-case x ()
+    [(my-or-3)
+     #'#f]
+    [(my-or-3 e)
+     #'e]
+    [(my-or-3 e0 e1 ...)
+     #'(if e0
+           e0
+           (my-or-3 e1 ...))]))
+
+(my-or-3 false true)
+(my-or-3 true false)
+(my-or-3 false false)
+(my-or-3 true true)
+
+'(expand/step-text #'(map (lambda (x y) (list x y (my-or-3 x y)))
+                         '(false true  false true)
+                         '(true  false false true)))
+;;; This gives errorneous result
+(map (lambda (x y) (list x y "===>" (my-or-3 x y)))
+     '(false true  false true)
+     '(true  false false true))
+
+(let ([init #f])
+  (my-or-3 (begin (set! init (not init))
+                  init)
+           #f))
+
+;;; expand the set! 2 times
+'(expand/step-text
+ #'(let ([init #f])
+     (my-or-3 (begin (set! init (not init))
+                     init)
+              #f)))
+
+(define-syntax (my-or-4 x)
+  (syntax-case x ()
+    [(my-or-4)
+     #'#f]
+    [(my-or-4 e)
+     #'e]
+    [(my-or-4 e0 e1 ...)
+     #'(let ([v e0])
+         (if v
+             v
+             (my-or-4 e1 ...)))]))
+
+(let ([v #t])
+  (my-or-4 #f v))
+
+'(expand/step-text
+ #'(let ([v #t])
+     (my-or-4 #f v)))
+
+(define-syntax object/self-1
+  (syntax-rules ()
+    [(object [mtd-name (var) val] ...)
+     (let ([self (lambda (msg-name)
+                   (lambda (v) (error 'object "nothing here")))])
+       (begin
+         (set! self
+               (lambda (msg)
+                 (case msg
+                   [(mtd-name) (lambda (var) val)]
+                 ...)))
+         self))]))
+
+;;; self: unbound identifier in module
+'(define os-1
+  (object/self-1
+   [first (x) (display self 'second (+ x 1))]
+   [second (x) (+ x 1)]))
+
+(define-syntax object/self-2
+  (syntax-rules ()
+    [(object self [mtd-name (var) val] ...)
+     (let ([self (lambda (msg-name)
+                   (lambda (v) (error 'object "nothing here")))])
+       (begin
+         (set! self
+               (lambda (msg)
+                 (case msg
+                   [(mtd-name) (lambda (var) val)]
+                 ...)))
+         self))]))
+
+'(expand/step-text
+ #'(define os-2
+   (object/self-2
+    self
+    [first (x) (display self 'second (+ x 1))]
+    [second (x) (+ x 1)])))
+
+(define-syntax (object/self-3 x)
+  (syntax-case x ()
+    [(object [mtd-name (var) val] ...)
+     (with-syntax ([self (datum->syntax x 'self)])
+       #'(let ([self (lambda (msg-name)
+                       (lambda (v) (error 'object "nothing here")))])
+           (begin
+             (set! self
+                   (lambda (msg-name)
+                     (case msg-name
+                       [(mtd-name) (lambda (var) val)]
+                       ...)))
+             self)))]))
+
+'(expand/step-text
+ #'(define os-3
+   (object/self-3
+    [first (x) (display self 'second (+ x 1))]
+    [second (x) (+ x 1)])))
+
+
+

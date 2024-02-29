@@ -1,0 +1,108 @@
+#lang plai-typed
+
+(define-type ExprC
+  [numC (n : number)]
+  [idC (s : symbol)]
+  [appC (fun : ExprC) (arg : ExprC)]
+  [plusC (l : ExprC) (r : ExprC)]
+  [multC (l : ExprC) (r : ExprC)]
+  [lamC (arg : symbol) (body : ExprC)]
+  [boxC (arg : ExprC)]
+  [unboxC (arg : ExprC)]
+  [set-boxC (arg : ExprC) (v : ExprC)]
+  [seqC (b1 : ExprC) (b2 : ExprC)])
+(define-type Value
+  [numV (n : number)]
+  [closV (arg : symbol) (body : ExprC) (env : Env)]
+  [boxV (v : Value)])
+(define-type Binding
+  [bind (name : symbol) (val : Value)])
+
+(define-type-alias Env (listof Binding))
+(define mt-env empty)
+(define extend-env cons)
+
+(define (lookup [for : symbol] [env : Env]): Value
+  (cond [(empty? env) (error for "name not bound")]
+        [(symbol=? for (bind-name (first env)))
+         (bind-val (first env))]
+        [else (lookup for (rest env))]))
+(define (interp [e : ExprC] [env : Env]) : Value
+  (type-case ExprC e
+             [numC (n) (numV n)]
+             [idC (n) (lookup n env)]
+             [lamC (a b) (closV a b env)]
+             [appC (f a) (local ([define f-value (interp f env)])
+                                (interp (closV-body f-value)
+                                        (extend-env (bind (closV-arg f-value)
+                                                          (interp a env))
+                                        (closV-env f-value)
+                                        ;env
+                                        ;mt-env
+                                                    )))]
+             [plusC (l r) (num+ (interp l env) (interp r env))]
+             [multC (l r) (num* (interp l env) (interp r env))]
+             [boxC (a) (boxV (interp a env))]
+             [unboxC (a) (boxV-v (interp a env))]
+             ;; THIS IS THE PROBLEM  ---  SET-BOX!  ---
+             [set-boxC (a b) (numV -1)]
+             ;; SEQ is unclear as well
+             [seqC (b1 b2) (let ([v (interp b1 env)])
+                             (interp b2 env))]))
+
+(define (num+ [l : Value] [r : Value]): Value
+  (cond [(and (numV? l) (numV? r)) (numV (+ (numV-n l) (numV-n r)))]
+        [else (error 'num+ "one of the arguments was not a number")]))
+(define (num* [l : Value] [r : Value]): Value
+  (cond [(and (numV? l) (numV? r)) (numV (* (numV-n l) (numV-n r)))]
+        [else (error 'num+ "one of the arguments was not a number")]))
+
+(define x (box 10))
+(unbox x)
+(set-box! x 20)
+(unbox x)
+(set-box! (box 10) 20)           ; cannot read the mutated box
+
+(define pair
+ (let ([b0 (box 0)]
+       [b1 (box 1)])
+   (let ([l (list b0 b1)])
+     (begin (set-box! (first l) 10)
+            (set-box! (second l) 20)
+            l))))
+pair
+(list (unbox (first pair)) (unbox (second pair)))
+
+(define new-loc
+  (let ([n (box 0)])
+    (lambda ()
+      (begin (set-box! n (add1 (unbox n)))
+             (unbox n)))))
+
+'---
+
+(list (new-loc) (new-loc) (new-loc) (new-loc))
+
+'---
+
+(define new-loc-broken
+  (lambda ()
+    (let ([n (box 0)])
+      (begin (set-box! n (add1 (unbox n)))
+             (unbox n)))))
+
+(list (new-loc-broken) (new-loc-broken) (new-loc-broken))
+
+(let ([n (box 0)])
+  (begin (set-box! n (add1 (unbox n)))
+         (set-box! n (add1 (unbox n)))
+         (unbox n)))
+
+(let ([n (box 0)])
+  (+ (begin (set-box! n (add1 (unbox n)))
+            (unbox n))
+     (begin (set-box! n (add1 (unbox n)))
+            (unbox n))))
+
+'ok
+

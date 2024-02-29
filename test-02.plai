@@ -1,0 +1,46 @@
+#lang plai-typed
+
+(define r : s-expression
+  '(a 1 "a" (+ 2 3)))
+
+r
+
+' (first r)
+
+(first (s-exp->list r))
+
+(s-exp->symbol (first (s-exp->list r)))
+
+(symbol->string (s-exp->symbol (first (s-exp->list r))))
+
+' (symbol->string (first (s-exp->list r)))
+
+(first (list 1 2 3))
+
+(s-exp-number? (number->s-exp 1))
+(s-exp-list? '(number->s-exp 1))
+(s-exp-symbol? (symbol->s-exp 'a))
+
+(define-type ArithC
+  [numC (n : number)]
+  [plusC (l : ArithC) (r : ArithC)]
+  [multC (l : ArithC) (r : ArithC)])
+
+(define (parse [s : s-expression]) : ArithC
+  (cond
+   [(s-exp-number? s) (numC (s-exp->number s))]
+   [(s-exp-list? s)
+    (let ([s1 (s-exp->list s)])
+      (case (s-exp->symbol (first s1))
+        [(+) (plusC (parse (second s1))
+                    (parse (third s1)))]
+        [(*) (multC (parse (second s1))
+                    (parse (third s1)))]
+        [else (error 'parse "invalid list input")]))]
+   [else (error 'parse "invalid input")]))
+
+(parse '(+ (* 1 2) (+ 2 3)))
+
+' (parse (+ (* 1 2) (+ 2 3)))
+
+

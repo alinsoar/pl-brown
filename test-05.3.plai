@@ -1,0 +1,100 @@
+#lang plai-typed
+
+(define-type FunDefC
+  [fdC (name : symbol) (arg : symbol) (body : ExprC)])
+(define (get-fundef [n : symbol] [fds : (listof FunDefC)]): FunDefC
+  (cond [(empty? fds) (error 'get-fundef "reference to undefined function")]
+        [(cons? fds) (cond [(equal? n (fdC-name (first fds)))
+                            (first fds)]
+                           [else (get-fundef n (rest fds))])]))
+
+(define-type ExprC
+  [numC (n : number)]
+  [idC (s : symbol)]
+  [appC (fun : symbol) (arg : ExprC)]
+  [plusC (l : ExprC) (r : ExprC)]
+  [multC (l : ExprC) (r : ExprC)]
+  [condC (expr : ExprC) (true : ExprC) (false : ExprC)])
+(define (subst [what : ExprC] [for : symbol] [in : ExprC] ) : ExprC
+  (type-case ExprC in
+             [numC (n) in]
+             [idC (s) (cond [(symbol=? s for) what]
+                            [else in])]
+             [appC (f a) (appC f (subst what for a))]
+             [plusC (l r) (plusC (subst what for l)
+                                 (subst what for r))]
+             [multC (l r) (multC (subst what for l)
+                                 (subst what for r))]
+             [condC (e t f) (condC (subst what for e)
+                                   (subst what for t)
+                                   (subst what for f))]))
+(define (interp [e : ExprC] [fds : (listof FunDefC)]) : number
+  (type-case ExprC e
+             [numC (n) n]
+             [idC (_) (error 'free-variable "should not get there")]
+             [appC (f a) (local ([define fd (get-fundef f fds)])
+                                ;; substitute name fdC-arg with the
+                                ;; VALUE of A
+                                (interp (subst (numC (interp a fds))
+                                               (fdC-arg fd)
+                                               (fdC-body fd))
+                                        fds))]
+             [plusC (l r) (+ (interp l fds) (interp r fds))]
+             [multC (l r) (* (interp l fds) (interp r fds))]
+             [condC (e t f) (if (= 0 (interp e fds))
+                                (interp f fds)
+                                (interp t fds))]))
+
+(define (parse [s : s-expression]) : ExprC
+  (cond
+   [(s-exp-number? s) (numC (s-exp->number s))]
+   [(s-exp-symbol? s) (idC (s-exp->symbol s))]
+   [(s-exp-list? s)
+    (let ([s1 (s-exp->list s)])
+      (case (s-exp->symbol (first s1))
+        [(+) (plusC (parse (second s1))
+                    (parse (third s1)))]
+        [(*) (multC (parse (second s1))
+                    (parse (third s1)))]
+        [(if) (condC (parse (second s1))
+                     (parse (third s1))
+                     (parse (fourth s1)))]
+        [else (appC (s-exp->symbol (first s1))
+                    (parse (second s1)))]))]
+   [else (error 'parse "invalid input")]))
+(define (parse-def [def : s-expression]): FunDefC
+  (let ((e (s-exp->list def)))
+    (let ((id-param (s-exp->list (second e)))
+          (body (third e)))
+      (let ((fid (s-exp->symbol (first id-param)))
+            (param (s-exp->symbol (second id-param))))
+        (fdC fid param (parse body))))))
+(define (parse-definitions [defs : (listof s-expression)]): (listof FunDefC)
+  (cond [(empty? defs) (list)]
+        [else (cons (parse-def (first defs))
+                    (parse-definitions (rest defs)))]))
+
+(rest (list 1 2 3))
+(list)
+(first (cons 1 (list)))
+(parse-def '(define (double x) (+ x x)))
+
+(define fds
+ (parse-definitions
+  (list '(define (double x) (+ x x))
+        '(define (quadruple x) (double (double x)))
+        '(define (const5 _) 5)
+        '(define (1- n) (+ n -1))
+        '(define (fact n) (if n
+                              (* n (fact (1- n)))
+                              1)))))
+
+(interp (parse '(double 5)) fds)
+(interp (parse '(quadruple (double 5))) fds)
+(interp (parse '(quadruple (double (const5 0)))) fds)
+(interp (parse '(if 0 1 2)) fds)
+(interp (parse '(if 1 1 2)) fds)
+(interp (parse '(fact 10)) fds)
+
+
+

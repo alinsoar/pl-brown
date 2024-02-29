@@ -1,0 +1,37 @@
+#lang plai-typed
+
+(define (newline) (display "\n"))
+(define (print val) (begin (display val) (newline)))
+
+(define (readx pv x) (begin (display pv) (display " ") (print x) x))
+(define read1 (lambda (pv) (readx pv 10)))
+(define read2 (lambda (pv) (readx pv 20)))
+
+(define new-label
+  (let ((n 100))
+    (lambda ()
+      (let ((k n))
+        (begin
+          (set! n (add1 n))
+          k)))))
+
+(define-type-alias label number)
+(define table (make-hash empty))
+(define identity (lambda (x) x))
+
+((lambda (k1)
+   ((lambda (k2)
+      ((lambda (k3)
+         ((lambda (k4) (k4 "First"))
+          (lambda (pv) (k3 (read1 pv)))))
+       (lambda (lv)
+         ((lambda (k5)
+            ((lambda (k6) (k6 "Second"))
+             (lambda (pv) (k5 (read2 pv)))))
+          (lambda (rv) (k2 (+ lv rv)))))))
+    (lambda (ov)
+      (k1 (display ov)))))
+ identity)
+
+(newline)
+

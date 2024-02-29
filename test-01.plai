@@ -1,0 +1,40 @@
+#lang plai-typed
+
+(display '(+ 1 2))
+(display " = ")
+(display (+ 1 2))
+(display "\n")
+
+(define-type MispelledAnimal
+  [caml (humps : number)]
+  [yacc (height : number)])
+
+(define ma1 : MispelledAnimal (caml 2))
+(define ma2 : MispelledAnimal (yacc 2))
+
+(define (good? [ma : MispelledAnimal]) : boolean
+  (type-case MispelledAnimal ma
+             [caml (humps) (>= humps 2)]
+             [yacc (height) (>= height 2.1)]))
+
+(test (good? ma1) true)
+(test (good? ma2) false)
+(test (caml-humps ma1) 2)
+(test (yacc-height ma2) 2)
+
+(define (Good? [ma : MispelledAnimal]) : boolean
+  (cond
+   [(caml? ma) (>= (caml-humps ma) 2)]
+   [(yacc? ma) (> (yacc-height ma) 2.1)]))
+
+(test (Good? ma1) true)
+(test (Good? ma2) false)
+
+' (test (yacc "test-string") error)
+' (good? 10)
+
+
+;;; combinators do not work in typed language
+'((lambda (rec) (rec rec 0))
+  (lambda (self n) n))
+

@@ -1,0 +1,148 @@
+#lang plai-typed
+
+;;; LOCATION ** BINDING ** ENVIRONMENT
+(define-type-alias Location number)
+(define-type Binding
+  [bind (name : symbol) (val : Location)])
+(define-type-alias Env (listof Binding))
+(define mt-env empty)
+(define extend-env cons)
+
+;;; STORAGE ** STORE
+(define-type Storage
+  [cell (location : Location) (val : Value)])
+(define-type-alias Store (listof Storage))
+(define mt-store empty)
+(define override-store cons)
+
+;;; INPUT-OUTPUT TYPES
+(define-type ExprC
+  [numC (n : number)]
+  [idC (s : symbol)]
+  [appC (fun : ExprC) (arg : ExprC)]
+  [plusC (l : ExprC) (r : ExprC)]
+  [lamC (arg : symbol) (body : ExprC)]
+  [boxC (arg : ExprC)]
+  [unboxC (arg : ExprC)]
+  [set-boxC (arg : ExprC) (v : ExprC)]
+  [seqC (b1 : ExprC) (b2 : ExprC)])
+(define-type Value
+  [numV (n : number)]
+  [closV (arg : symbol) (body : ExprC) (env : Env)]
+  [boxV (l : Location)])
+(define-type Result
+  [v*s (v : Value) (s : Store)])
+
+;;; LOOKUP : ENVIRONMENT -> MEMORY LOCATION
+(define (lookup [for : symbol] [env : Env]): Location
+  (cond [(empty? env) (error for "name not bound")]
+        [(symbol=? for (bind-name (first env)))
+         (bind-val (first env))]
+        [else (lookup for (rest env))]))
+;;; FETCH : MEMORY LOCATION -> VALUE
+(define (fetch [loc : Location] [sto : Store]): Value
+  (cond [(empty? sto) (error (s-exp->symbol (number->s-exp loc))
+                             "location not found")]
+        [(= loc (cell-location (first sto)))
+         (cell-val (first sto))]
+        [else (fetch loc (rest sto))]))
+;;; INTERPRETER
+(define (interp [e : ExprC] [env : Env] [sto : Store]) : Result
+  (type-case
+   ExprC e
+   [numC (n)       (v*s (numV n) sto)]
+   [lamC (a b)     (v*s (closV a b env) sto)]
+   [idC (n)        (v*s [fetch {lookup n env} sto] sto)]
+   [seqC (b1 b2)   (type-case
+                    Result (interp b1 env sto)
+                    [v*s (_ s-b1)
+                         (interp b2 env s-b1)])]
+   [plusC (l r)    (type-case
+                    Result (interp l env sto)
+                    [v*s (v-l s-l)
+                         (type-case
+                          Result (interp r env s-l)
+                          [v*s (v-r s-r)
+                               {v*s {num+ v-l v-r} s-r}])])]
+   [boxC (a)       (type-case
+                    Result (interp a env sto)
+                    [v*s (v-a s-a)
+                         (let ([where (new-loc)])
+                           (v*s (boxV where)
+                                (override-store (cell where v-a)
+                                                s-a)))])]
+   [unboxC (a)     (type-case
+                    Result (interp a env sto)
+                    [v*s (v-a s-a)
+                         (v*s (fetch (boxV-l v-a) s-a)
+                              s-a
+                              ;sto
+                              )])]
+   [set-boxC (b v) (type-case
+                    Result (interp b env sto)
+                    [v*s (v-b s-b)
+                         (type-case
+                          Result (interp v env s-b)
+                          [v*s (v-v s-v)
+                               ;; set-box can return a nonsense value;
+                               ;; only the storage returned matters.
+                               (v*s (numV -1)  ; v-v
+                                    (override-store (cell (boxV-l v-b)
+                                                          v-v)
+                                                    s-b))])])]
+   [appC (f a)     (type-case
+                    Result (interp f env sto)
+                    [v*s (v-f s-f)
+                         (type-case
+                          Result (interp a env s-f)
+                          [v*s (v-a s-a)
+                               (let ([where (new-loc)])
+                                 (interp (closV-body v-f)
+                                         (extend-env (bind (closV-arg v-f)
+                                                           where)
+                                                     (closV-env v-f))
+                                         (override-store (cell where v-a)
+                                                         s-a)))])])]))
+
+;;; USEFUL FUNCTIONS
+(define (value [a : Result]): Value
+  (type-case Result a
+             [v*s (a s) a]))
+(define new-loc
+  (let ([loc [box 0]])
+    (lambda ()
+      (begin (set-box! loc (add1 (unbox loc)))
+             (unbox loc)))))
+(define (num+ [l : Value] [r : Value]): Value
+  (cond [(and (numV? l) (numV? r)) (numV (+ (numV-n l) (numV-n r)))]
+        [else (error 'num+ "one of the arguments was not a number")]))
+(define (num* [l : Value] [r : Value]): Value
+  (cond [(and (numV? l) (numV? r)) (numV (* (numV-n l) (numV-n r)))]
+        [else (error 'num+ "one of the arguments was not a number")]))
+
+;;; TESTS
+(value (interp (numC 10) mt-env mt-store))
+(value (interp (plusC (numC 10) (numC 10)) mt-env mt-store))
+(value (interp (plusC (plusC (plusC (numC 10) (numC 10))
+                       (plusC (numC 10) (numC 10)))
+                (plusC (plusC (numC 10) (numC 10))
+                       (plusC (numC 10) (numC 10)))) mt-env mt-store))
+
+(value (interp (appC (lamC 'x (seqC
+                               (set-boxC (idC 'x) (numC 100))
+                               (unboxC (idC 'x))))
+                     (boxC (numC 11)))
+               mt-env mt-store))
+
+(value
+ (interp
+  (appC (lamC 'b (seqC
+                  (unboxC (seqC (set-boxC (idC 'b) (numC 111))
+                                (idC 'b)))
+                  (unboxC (idC 'b))))
+        (boxC (numC 3)))
+  mt-env
+  mt-store))
+
+'okay
+

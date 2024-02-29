@@ -1,0 +1,17 @@
+
+# BUGS in
+
+# objects2
+
+{a:0, a:0}
+
+# same bugs
+# {
+#     f:lambda(self) {self},
+#     f:3
+# }
+
+
+
+
+

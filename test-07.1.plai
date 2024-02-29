@@ -1,0 +1,84 @@
+#lang plai-typed
+
+(define-type ExprC
+  [numC (n : number)]
+  [idC (s : symbol)]
+  [appC (fun : ExprC) (arg : ExprC)]
+  [plusC (l : ExprC) (r : ExprC)]
+  [multC (l : ExprC) (r : ExprC)]
+  [fdC (name : symbol) (arg : symbol) (body : ExprC)])
+(define-type Value
+  [numV (n : number)]
+  [funV (name : symbol) (arg : symbol) (body : ExprC)])
+(define-type Binding
+  [bind (name : symbol) (val : Value)])
+
+(define-type-alias Env (listof Binding))
+(define mt-env empty)
+(define extend-env cons)
+
+(define (lookup [for : symbol] [env : Env]): Value
+  (cond [(empty? env) (error 'lookup "name not bound")]
+        [(symbol=? for (bind-name (first env)))
+         (bind-val (first env))]
+        [else (lookup for (rest env))]))
+(define (interp [e : ExprC] [env : Env]) : Value
+  (type-case ExprC e
+             [numC (n) (numV n)]
+             [idC (n) (lookup n env)]
+             [fdC (n a b) (funV n a b)]
+             [appC (f a) (local ([define fd (interp f env)])
+                                (cond [(funV? fd)
+                                       (interp (funV-body fd)
+                                               (extend-env (bind (funV-arg fd)
+                                                                 (interp a env))
+                                                           mt-env))]
+                                      [else (error 'apply "not a function")]))]
+             [plusC (l r) (num+ (interp l env) (interp r env))]
+             [multC (l r) (num* (interp l env) (interp r env))] ))
+
+(define (num+ [l : Value] [r : Value]): Value
+  (cond [(and (numV? l) (numV? r)) (numV (+ (numV-n l) (numV-n r)))]
+        [else (error 'num+ "one of the arguments was not a number")]))
+(define (num* [l : Value] [r : Value]): Value
+  (cond [(and (numV? l) (numV? r)) (numV (* (numV-n l) (numV-n r)))]
+        [else (error 'num+ "one of the arguments was not a number")]))
+
+(test (interp (plusC (numC 10)
+                     (appC (fdC 'const5 '_ (numC 5))
+                           (numC 10)))
+              mt-env)
+      (numV 15))
+
+(test/exn (interp (appC (fdC 'f1 'x (appC (fdC 'f2 'y (plusC (idC 'x) (idC 'y)))
+                                          (numC 4)))
+                        (numC 3))
+                  mt-env)
+          "lookup: name not bound")
+
+(fdC 'f1 'x
+     (fdC 'f2 'x
+          (plusC (idC 'x) (idC 'x))))
+
+(interp (appC (fdC 'f1 'x
+                   (fdC 'f2 'x
+                        (plusC (idC 'x) (idC 'x))))
+              (numC 4))
+        mt-env)
+
+(interp (appC (fdC 'f1 'x
+                   (fdC 'f2 'y
+                        (plusC (idC 'x) (idC 'y))))
+              (numC 4))
+        mt-env)
+
+(test/exn
+ (interp (appC (appC (fdC 'f1 'x
+                          (fdC 'f2 'y
+                               (plusC (idC 'x) (idC 'y))))
+                     (numC 4))
+               (numC 5))
+         mt-env)
+ "lookup: name not bound")
+
+

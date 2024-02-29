@@ -1,0 +1,12 @@
+
+# too many arguments
+
+defvar x = "" in
+defvar f = lambda(y) x in {
+  print("start\n");
+  print(f("hello!", 10));
+  x;
+}
+
+
+

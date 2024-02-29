@@ -1,0 +1,29 @@
+
+defvar a0 = 0 in
+defvar a1 = 0 in
+defvar a2 = 0 in
+defvar a3 = 0 in
+defvar cons =
+lambda (x, y) {
+    lambda (f) {
+        f (lambda (a) {x=a},
+           lambda (b) {y=b},
+           lambda () {x},
+           lambda () {y} )
+    }
+} in
+defvar car = lambda (k) { k(lambda (a0,a1,a2,a3) a2() ) } in
+defvar setcar = lambda (k, x) { k(lambda (a0,a1,a2,a3) a0(x) ) } in
+defvar cdr = lambda (k) { k(lambda (a0,a1,a2,a3) a3() ) } in
+defvar setcdr = lambda (k, x) { k(lambda (a0,a1,a2,a3) a1(x) ) } in
+defvar k = cons(10, 20) in {
+    print(car(k));
+    print(cdr(k));
+    setcar(k,30);
+    print(car(k));
+    setcdr(k,40);
+    print(cdr(k));
+    "";
+}
+
+

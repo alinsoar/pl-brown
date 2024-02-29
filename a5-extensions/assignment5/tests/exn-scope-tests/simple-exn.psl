@@ -1,0 +1,16 @@
+
+deffun goo(x, y) if ==(x, y) then y else +(x, goo(+(x, 1), y))
+in
+deffun hoo(x, y) raise goo(x, y)
+in
+deffun foo()
+  raise +(raise hoo(0, 100), 100)
+in
+deffun bar(f)
+  try
+    f()
+  catch e in
+    e
+in {
+  bar(foo)
+}

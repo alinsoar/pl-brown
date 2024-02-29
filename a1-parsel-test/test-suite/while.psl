@@ -1,0 +1,11 @@
+
+# BUGS in
+
+# bindings2
+# bindings3
+# loops1
+# sequence1
+# sequence2
+
+while (<(0,0)) {0}
+

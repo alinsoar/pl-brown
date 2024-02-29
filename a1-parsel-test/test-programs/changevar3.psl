@@ -1,0 +1,15 @@
+
+# changes to objects made with = are NOT visible later
+
+defvar o = {x:"before"} in {
+  print(o.x);
+  print("\n");
+  print(o.x = "after-1");
+  print("\n");
+  print((o.x = "after-2").x);
+  print("\n");
+  o.x = "after";
+  o["x"];
+}
+
+

@@ -1,0 +1,10 @@
+
+defvar x = 0 in {
+  while(>(x,1)) {
+    print(x);
+    print(" ");
+    x = -(x,1);
+  }
+}
+
+

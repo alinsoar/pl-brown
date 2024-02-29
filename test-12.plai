@@ -1,0 +1,76 @@
+#lang plai-typed
+
+;;; LOCATION ** BINDING ** ENVIRONMENT
+(define-type Binding [bind (name : symbol) (val : Value)])
+(define-type-alias Env (listof Binding))
+(define mt-env empty)
+(define extend-env cons)
+
+;;; INPUT-OUTPUT TYPES
+(define-type ExprC
+  [numC (n : number)]
+  [idC (s : symbol)]
+  [appC (fun : ExprC) (arg : ExprC)]
+  [plusC (l : ExprC) (r : ExprC)]
+  [multC (l : ExprC) (r : ExprC)]
+  [lamC (arg : symbol) (body : ExprC)])
+(define-type Value
+  [numV (n : number)]
+  [closV (f : (Value -> Value))])
+
+;;; INTERPRETER
+(define (lookup [for : symbol] [env : Env]): Value
+  (cond [(empty? env) (error for "name not bound")]
+        [(symbol=? for (bind-name (first env)))
+         (bind-val (first env))]
+        [else (lookup for (rest env))]))
+(define (interp [e : ExprC] [env : Env]) : Value
+  (type-case
+   ExprC e
+   [numC(n)    (numV n)]
+   [lamC(a b)  (closV (lambda (arg-val) (interp b (extend-env (bind a arg-val) env))))]
+   [idC(n)     {lookup n env}]
+   [plusC(l r) {num+ (interp l env) (interp r env)}]
+   [multC(l r) {num* (interp l env) (interp r env)}]
+   [appC(f a)  (local ([define f-value (interp f env)]
+                       [define a-value (interp a env)])
+                      ((closV-f f-value) a-value))]))
+
+;;; USEFUL FUNCTIONS
+(define (num+ [l : Value] [r : Value]): Value (numV (+ (numV-n l) (numV-n r))))
+(define (num* [l : Value] [r : Value]): Value (numV (* (numV-n l) (numV-n r))))
+
+;; ;;; TESTS
+(interp (numC 10) mt-env)
+(interp (plusC (numC 10) (numC 10)) mt-env)
+(interp (plusC (plusC (plusC (numC 10) (numC 10))
+                      (plusC (numC 10) (numC 10)))
+               (plusC (plusC (numC 10) (numC 10))
+                      (plusC (numC 10) (numC 10))))
+        mt-env)
+
+;;; hidden representation of lambdas
+(interp (lamC 'a (idC 'a))
+        mt-env)
+
+(interp (appC (lamC 'a (idC 'a))
+              (numC 100))
+        mt-env)
+
+(interp (appC (appC (lamC 'a (lamC 'b (plusC (idC 'b) (idC 'a))))
+                    (numC 100))
+              (numC 200))
+        mt-env)
+
+;;; static binding for n and m
+(interp (appC (appC (lamC 'fun (lamC 'm
+                                     (appC (appC (idC 'fun) (idC 'fun))
+                                           (idC 'm))))
+                    (lamC 'self
+                          (lamC 'n
+                                (multC (idC 'n) (idC 'n)))))
+              (numC 11))
+        mt-env)
+
+;; 'okay
+

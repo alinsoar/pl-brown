@@ -1,0 +1,5 @@
+
+deffun foo(i) 10
+in foo (0)
+
+

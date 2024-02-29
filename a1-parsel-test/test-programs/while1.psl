@@ -1,0 +1,11 @@
+
+defvar x = 10 in {
+  while(>(x,0)) {
+    print(x);
+    print(" ");
+    if (==(x,5)) then ({a:5}).b else 0;
+    x = -(x,1);
+  }
+}
+
+

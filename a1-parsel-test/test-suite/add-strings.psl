@@ -1,0 +1,11 @@
+
+# finds BUGS in
+
+# X if-then-else3
+# X operators1
+# X operators2-2
+
+
++("a", "b", "c", "d")
+
+

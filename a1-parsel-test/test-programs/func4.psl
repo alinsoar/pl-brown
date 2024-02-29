@@ -1,0 +1,14 @@
+
+# cannot nest defvar inside a lambda
+
+defvar x = "" in
+defvar f = lambda(y) {
+    # defvar a = "a" in {x};
+    10
+} in {
+  print(f("hello!"));
+  x;
+}
+
+
+

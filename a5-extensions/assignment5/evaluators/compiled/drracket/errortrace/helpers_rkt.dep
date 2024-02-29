@@ -1,0 +1,1 @@
+("6.1.1" ("13047637bfe5732aa645178f20b90f755a742d83" . "e22a8eef1463852114c3db091ea5a3e50b4b985e") (collects #"racket" #"runtime-config.rkt") (collects #"plai-typed" #"main.rkt"))

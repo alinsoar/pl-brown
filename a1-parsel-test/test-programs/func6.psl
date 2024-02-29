@@ -1,0 +1,11 @@
+
+defvar nl = "\n" in
+defvar f = lambda(y) print(+(y, nl)) in {
+  f(">");
+  f(+("hello", " ", "world!"));
+  f("<");
+  nl;
+}
+
+
+

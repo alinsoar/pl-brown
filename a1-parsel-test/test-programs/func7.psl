@@ -1,0 +1,14 @@
+
+# cannot call recursivelly inside a lambda
+
+defvar sum = lambda(y) {
+    print("sum\n");
+    if (==(y,0))
+    then 1
+    else +(y, sum(-(y, 1)));
+} in
+defvar s = sum in
+  s(20)
+
+
+

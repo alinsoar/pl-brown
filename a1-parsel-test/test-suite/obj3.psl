@@ -1,0 +1,16 @@
+
+# BUGS in
+
+# bindings3
+# if-then-else3
+# objects3
+# objects4
+# operators1
+
+defvar o = {
+    a:0,
+    b:lambda(self) {self.a=+(self.a,1);}
+} in
+o@b().a
+
+
